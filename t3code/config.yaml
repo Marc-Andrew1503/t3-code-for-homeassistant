@@ -1,0 +1,37 @@
+name: "T3 Code"
+slug: t3code
+version: "0.0.45"
+description: "T3 Code server with Claude Code as a remote environment for working on your Home Assistant configuration"
+url: https://github.com/Marc-Andrew1503/t3-code-for-homeassistant
+arch:
+  - amd64
+init: false
+startup: application
+boot: auto
+image: "ghcr.io/marc-andrew1503/t3code-{arch}"
+ports:
+  3773/tcp: 3773
+ports_description:
+  3773/tcp: "T3 Code server (web UI, pairing and client connections)"
+webui: "http://[HOST]:[PORT:3773]"
+watchdog: "http://[HOST]:[PORT:3773]/.well-known/t3/environment"
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /homeassistant
+  - type: share
+    read_only: false
+options:
+  log_level: info
+  projects:
+    - /homeassistant
+  telemetry: false
+schema:
+  log_level: list(trace|debug|info|warn|error)?
+  projects:
+    - str
+  git_user_name: str?
+  git_user_email: email?
+  anthropic_api_key: password?
+  claude_code_oauth_token: password?
+  telemetry: bool?

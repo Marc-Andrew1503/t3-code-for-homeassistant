@@ -1,0 +1,15 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local test artifacts
+/tmp/
+*.log
+.env
+
+# Node (if the add-on is ever built outside Docker)
+node_modules/

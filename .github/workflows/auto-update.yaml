@@ -1,0 +1,174 @@
+---
+name: Auto-update
+
+# Checks npm for new stable T3 Code / Claude Code releases. If something changed:
+#   check   -> bump the add-on files on a temporary branch auto-update/<version>
+#   test    -> build-test.yaml (lint + build + smoke test) against that commit
+#   promote -> fast-forward main to the tested commit
+#   release -> release.yaml publishes the image, tag and GitHub release
+# On any failure main stays untouched and an issue labelled "auto-update-failed"
+# is opened (or updated).
+#
+# Pushes made with GITHUB_TOKEN do not trigger other workflows, which is why the
+# test and release workflows are called explicitly instead of via push events.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check upstream versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.upstream.outputs.changed }}
+      version: ${{ steps.upstream.outputs.version }}
+      summary: ${{ steps.upstream.outputs.summary }}
+      base_sha: ${{ steps.base.outputs.sha }}
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Record main commit
+        id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Query npm and update add-on files
+        id: upstream
+        run: scripts/check-upstream.sh
+
+      - name: Commit and push update branch
+        id: push
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          SUMMARY: ${{ steps.upstream.outputs.summary }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "auto-update/${VERSION}"
+          git add t3code
+          git commit -m "chore: ${SUMMARY}"
+          git push --force origin "HEAD:refs/heads/auto-update/${VERSION}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Build & test update
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-test.yaml
+    with:
+      ref: ${{ needs.check.outputs.sha }}
+
+  promote:
+    name: Merge update into main
+    needs: [check, test]
+    if: needs.check.outputs.changed == 'true' && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ needs.check.outputs.sha }}
+    steps:
+      - name: Check out tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Fast-forward main
+        env:
+          SHA: ${{ needs.check.outputs.sha }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          # A plain (non-forced) push only succeeds if it is a fast-forward of main.
+          git push origin "${SHA}:refs/heads/main"
+          git push origin --delete "auto-update/${VERSION}" || true
+
+  release:
+    name: Publish release
+    needs: [check, test, promote]
+    # Also runs when nothing changed: release.yaml is a no-op if the tag exists,
+    # and this self-heals a previous run that updated main but failed to release.
+    if: ${{ !cancelled() && needs.check.result == 'success' && (needs.promote.result == 'success' || needs.check.outputs.changed != 'true') }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/release.yaml
+    with:
+      ref: ${{ needs.promote.outputs.sha || needs.check.outputs.base_sha }}
+
+  notify-failure:
+    name: Report failure
+    needs: [check, test, promote, release]
+    if: ${{ !cancelled() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SUMMARY: ${{ needs.check.outputs.summary }}
+          VERSION: ${{ needs.check.outputs.version }}
+          CHECK: ${{ needs.check.result }}
+          TEST: ${{ needs.test.result }}
+          PROMOTE: ${{ needs.promote.result }}
+          RELEASE: ${{ needs.release.result }}
+        run: |
+          set -euo pipefail
+          label="auto-update-failed"
+          gh label create "${label}" --color B60205 \
+            --description "The automatic T3 Code / Claude Code update failed" 2> /dev/null || true
+
+          body="The scheduled auto-update failed: ${RUN_URL}
+
+          - Update: ${SUMMARY:-unknown}
+          - check: ${CHECK}, test: ${TEST}, promote: ${PROMOTE}, release: ${RELEASE}
+
+          \`main\` was left untouched unless the *promote* step succeeded. If only *release* failed, re-run the Release workflow (workflow_dispatch) or wait for the next scheduled run, which retries it automatically. If *test* failed, inspect the branch \`auto-update/${VERSION}\`."
+
+          existing="$(gh issue list --label "${label}" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "${existing}" ]]; then
+            gh issue comment "${existing}" --body "${body}"
+          else
+            gh issue create --label "${label}" \
+              --title "Auto-update failed" --body "${body}"
+          fi
+
+  resolve-failure:
+    name: Close failure issues
+    needs: [check, test, promote, release]
+    if: ${{ !cancelled() && needs.check.result == 'success' && needs.release.result == 'success' && needs.test.result != 'failure' && needs.promote.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Close open auto-update-failed issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          for n in $(gh issue list --label auto-update-failed --state open --json number --jq '.[].number'); do
+            gh issue close "${n}" --comment "Resolved by a successful auto-update run: ${RUN_URL}"
+          done

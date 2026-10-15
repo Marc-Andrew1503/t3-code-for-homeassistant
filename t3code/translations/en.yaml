@@ -1,0 +1,33 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Verbosity of the T3 Code server log.
+  projects:
+    name: Projects
+    description: >-
+      Folders to register as T3 Code projects on every start. Defaults to the
+      Home Assistant configuration folder. Other useful paths are /share and
+      /addon_configs.
+  git_user_name:
+    name: Git user name
+    description: Name used for git commits made by agents. Defaults to "T3 Code".
+  git_user_email:
+    name: Git user email
+    description: >-
+      Email used for git commits made by agents. Defaults to
+      t3code@homeassistant.local.
+  anthropic_api_key:
+    name: Anthropic API key
+    description: >-
+      Optional. Authenticates Claude Code with an Anthropic API key (pay per
+      use). Leave empty to log in with your Claude subscription instead.
+  claude_code_oauth_token:
+    name: Claude Code OAuth token
+    description: >-
+      Optional. Long-lived token created with "claude setup-token" on another
+      computer, to use your Claude subscription without an interactive login.
+  telemetry:
+    name: T3 Code telemetry
+    description: Send T3 Code's anonymous usage analytics. Disabled by default.
+network:
+  3773/tcp: T3 Code server (web UI, pairing and client connections)

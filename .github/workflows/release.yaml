@@ -1,0 +1,174 @@
+---
+name: Release
+
+# Builds the add-on image, smoke tests it, pushes it to GHCR and creates the git
+# tag + GitHub release. Skips silently when the tag v<version> already exists.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "t3code/**"
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA (or ref) to release
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, publish & release
+    # Never publish from feature branches (relevant for manual dispatches).
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Read build configuration
+        id: cfg
+        run: scripts/read-config.sh >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          VERSION: ${{ steps.cfg.outputs.version }}
+          CONFIG_IMAGE: ${{ steps.cfg.outputs.image }}
+          REPOSITORY: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${OWNER,,}/t3code-amd64"
+          expected="ghcr.io/${OWNER,,}/t3code-{arch}"
+          if [[ "${CONFIG_IMAGE}" != "${expected}" ]]; then
+            echo "::error file=t3code/config.yaml::config.yaml image is '${CONFIG_IMAGE}' but this repository publishes '${expected}'. Fix the image field, otherwise Home Assistant cannot pull the add-on."
+            exit 1
+          fi
+          {
+            echo "image=${image}"
+            echo "tag=v${VERSION}"
+            echo "source=${SERVER_URL}/${REPOSITORY}"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check whether the release already exists
+        id: exists
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/${TAG}" > /dev/null
+          rc=$?
+          set -e
+          case "${rc}" in
+            0)
+              echo "Tag ${TAG} already exists - nothing to release."
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              ;;
+            2)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::git ls-remote failed (exit code ${rc})"
+              exit 1
+              ;;
+          esac
+
+      - name: Set up Docker Buildx
+        if: steps.exists.outputs.exists == 'false'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        if: steps.exists.outputs.exists == 'false'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        if: steps.exists.outputs.exists == 'false'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./t3code
+          build-args: ${{ steps.cfg.outputs.build_args }}
+          load: true
+          push: false
+          provenance: false
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.cfg.outputs.version }}
+            ${{ steps.meta.outputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ steps.meta.outputs.source }}
+            org.opencontainers.image.title=T3 Code for Home Assistant
+            org.opencontainers.image.description=T3 Code packaged as a Home Assistant add-on
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ steps.cfg.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=t3code-amd64
+          cache-to: type=gha,scope=t3code-amd64,mode=max
+
+      - name: Smoke test
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}:${{ steps.cfg.outputs.version }}
+          T3_VERSION: ${{ steps.cfg.outputs.t3_version }}
+        run: tests/smoke.sh "${IMAGE}" "${T3_VERSION}"
+
+      - name: Push image
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          VERSION: ${{ steps.cfg.outputs.version }}
+        run: |
+          docker push "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:latest"
+
+      - name: Create tag and GitHub release
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.cfg.outputs.version }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+        run: |
+          set -euo pipefail
+          {
+            scripts/changelog-section.sh "${VERSION}"
+            echo
+            echo "Image: \`${IMAGE}:${VERSION}\`"
+          } > "${RUNNER_TEMP}/notes.md"
+          gh release create "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${SHA}" \
+            --title "${TAG}" \
+            --notes-file "${RUNNER_TEMP}/notes.md" \
+            --latest
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.cfg.outputs.version }}
+          EXISTS: ${{ steps.exists.outputs.exists }}
+        run: |
+          if [[ "${EXISTS}" == "true" ]]; then
+            echo "Release v${VERSION} already exists - skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Released v${VERSION}." >> "$GITHUB_STEP_SUMMARY"
+          fi

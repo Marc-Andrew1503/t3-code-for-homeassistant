@@ -1,0 +1,101 @@
+---
+name: Build & Test
+
+# Lints the add-on, builds the image and runs the smoke test.
+# Reusable (called by auto-update.yaml) and also triggered by PRs and pushes to
+# branches other than main.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref or commit SHA to build and test (default is the triggering ref)
+        type: string
+        required: false
+        default: ""
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-addon:
+    name: Lint add-on
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Lint add-on configuration
+        uses: frenck/action-app-linter@v2
+        with:
+          path: ./t3code
+
+  lint-dockerfile:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: t3code/Dockerfile
+          failure-threshold: warning
+
+  lint-shell:
+    name: Lint shell scripts & script tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Run shellcheck
+        run: scripts/lint-shell.sh
+
+      - name: Test upstream update script
+        run: tests/check-upstream.test.sh
+
+  build-and-test:
+    name: Build image & smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Read build configuration
+        id: cfg
+        run: scripts/read-config.sh >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./t3code
+          build-args: ${{ steps.cfg.outputs.build_args }}
+          load: true
+          push: false
+          provenance: false
+          tags: local/t3code-amd64:ci
+          cache-from: type=gha,scope=t3code-amd64
+          cache-to: type=gha,scope=t3code-amd64,mode=max
+
+      - name: Smoke test
+        run: tests/smoke.sh local/t3code-amd64:ci "${{ steps.cfg.outputs.t3_version }}"

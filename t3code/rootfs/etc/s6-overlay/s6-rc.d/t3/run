@@ -1,0 +1,125 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# T3 Code add-on: run the T3 Code server.
+# ==============================================================================
+set -uo pipefail
+# shellcheck source=/dev/null
+source /usr/local/lib/t3code/lib.sh
+
+readonly PORT=3773
+
+export HOME=/data/home
+export T3CODE_HOME=/data/t3
+export DISABLE_AUTOUPDATER=1
+# The add-on container is the sandbox. Without this, Claude Code refuses its
+# "bypass permissions" mode (T3 "Full access") when running as root.
+export IS_SANDBOX=1
+
+# --- credentials for Claude Code (optional) -----------------------------------
+api_key="$(opt anthropic_api_key)"
+oauth_token="$(opt claude_code_oauth_token)"
+[[ -n "${api_key}" ]] && export ANTHROPIC_API_KEY="${api_key}"
+[[ -n "${oauth_token}" ]] && export CLAUDE_CODE_OAUTH_TOKEN="${oauth_token}"
+
+# --- telemetry (T3's anonymous PostHog analytics; off unless enabled) ---------
+if [[ "$(opt telemetry false)" == "true" ]]; then
+    export T3CODE_TELEMETRY_ENABLED=true
+else
+    export T3CODE_TELEMETRY_ENABLED=false
+fi
+
+# --- log level ----------------------------------------------------------------
+log_level="$(opt log_level info)"
+case "${log_level}" in
+    trace | debug | info | warn | error) ;;
+    *) log_level=info ;;
+esac
+
+# --- address clients should use ------------------------------------------------
+# t3 advertises the container's internal IP, which is useless from outside.
+# Work out the Home Assistant host's address (and mapped port) for the log.
+adv_host=""
+adv_name=""
+adv_port="${PORT}"
+if [[ -n "${SUPERVISOR_TOKEN:-}" ]]; then
+    adv_host="$(bashio::network.ipv4_address 2> /dev/null | head -n 1 | cut -d/ -f1)" || adv_host=""
+    adv_name="$(bashio::host.hostname 2> /dev/null)" || adv_name=""
+    mapped_port="$(bashio::app.port "${PORT}/tcp" 2> /dev/null)" || mapped_port=""
+    [[ "${mapped_port}" =~ ^[0-9]+$ ]] && adv_port="${mapped_port}"
+fi
+[[ "${adv_host}" =~ ^[0-9a-fA-F:.]+$ ]] || adv_host=""
+[[ "${adv_name}" =~ ^[A-Za-z0-9.-]+$ ]] || adv_name=""
+if [[ -n "${adv_host}" ]]; then
+    display_host="${adv_host}"
+else
+    display_host="<your-HA-IP>"
+fi
+base_url="http://${display_host}:${adv_port}"
+
+# Print the pairing details with the correct address once the server is up.
+announce() {
+    local i
+    for i in $(seq 1 120); do
+        curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/.well-known/t3/environment" 2> /dev/null && break
+        sleep 1
+    done
+    [[ ${i} -lt 120 ]] || return 0
+
+    local out err token
+    token=""
+    err="$(mktemp)"
+    for _ in 1 2 3; do
+        if out="$(t3 auth pairing create --ttl 1h --label "Home Assistant add-on" \
+            --json 2> "${err}")"; then
+            token="$(jq -r '.credential // empty' <<< "${out}" 2> /dev/null)" || token=""
+        fi
+        [[ -n "${token}" ]] && break
+        sleep 2
+    done
+    if [[ -z "${token}" ]]; then
+        bashio::log.warning "Could not create a pairing code: $(head -n 3 "${err}" 2> /dev/null)${out:0:200}"
+    fi
+    rm -f "${err}"
+
+    echo
+    echo "=============================================================================="
+    echo " T3 Code is ready. Pair your T3 Code desktop/web client with this server."
+    echo
+    echo "   Server URL : ${base_url}"
+    [[ -n "${adv_name}" ]] && echo "   (or        : http://${adv_name}.local:${adv_port})"
+    if [[ -n "${token}" ]]; then
+        echo "   Pairing code (valid 1 hour, single use): ${token}"
+        echo "   Pairing link: ${base_url}/pair#token=${token}"
+    fi
+    echo
+    echo " In T3 Code: Settings -> Connections -> Add environment, then enter the"
+    echo " server URL and the pairing code (or open the pairing link)."
+    [[ -z "${adv_host}" ]] && echo " Replace <your-HA-IP> with the IP address of your Home Assistant host."
+    echo " Need a new code later? Restart this add-on; a fresh one is printed here."
+    echo "=============================================================================="
+    echo
+}
+
+# t3 prints its startup pairing details with the container-internal address and
+# a QR code encoding it. Rewrite the address and drop the (then wrong) QR code.
+filter_output() {
+    sed -u -E \
+        -e "/^(Connection string|Pairing URL): /s#http://[^:/]+(:[0-9]+)#${base_url}#" \
+        -e "s#^Token: #Pairing code (admin, valid 5 minutes): #" \
+        -e "s#^Pairing URL: #Pairing URL (admin, valid 5 minutes): #" \
+        -e '/^[[:space:]█▀▄]+$/d'
+}
+
+cd /homeassistant 2> /dev/null || cd "${HOME}" || exit 1
+
+bashio::log.info "Starting T3 Code $(t3 --version 2> /dev/null | head -n 1) on port ${PORT}"
+
+announce &
+
+exec t3 serve \
+    --host 0.0.0.0 \
+    --port "${PORT}" \
+    --no-browser \
+    --log-level "${log_level}" \
+    > >(filter_output) 2>&1

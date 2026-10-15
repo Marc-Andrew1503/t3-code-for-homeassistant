@@ -1,0 +1,60 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# T3 Code add-on: prepare persistent state, git defaults and projects.
+# ==============================================================================
+set -uo pipefail
+# shellcheck source=/dev/null
+source /usr/local/lib/t3code/lib.sh
+
+export HOME=/data/home
+export T3CODE_HOME=/data/t3
+
+mkdir -p "${HOME}" "${T3CODE_HOME}"
+chmod 700 "${HOME}"
+
+# --- git defaults (persisted in /data/home/.gitconfig) ------------------------
+# The Home Assistant config folder and /share are bind mounts that may be owned
+# by another uid, so mark every directory as safe.
+git config --global --replace-all safe.directory '*'
+
+git_name="$(opt git_user_name)"
+git_email="$(opt git_user_email)"
+if [[ -n "${git_name}" ]]; then
+    git config --global user.name "${git_name}"
+elif ! git config --global --get user.name > /dev/null; then
+    git config --global user.name "T3 Code"
+fi
+if [[ -n "${git_email}" ]]; then
+    git config --global user.email "${git_email}"
+elif ! git config --global --get user.email > /dev/null; then
+    git config --global user.email "t3code@homeassistant.local"
+fi
+
+# --- register projects --------------------------------------------------------
+# Without an options file (not run by the Supervisor) fall back to the default.
+if [[ -r "${OPTIONS_FILE}" ]]; then
+    projects="$(opt_list projects)"
+else
+    projects="/homeassistant"
+fi
+
+while IFS= read -r project; do
+    [[ -n "${project}" ]] || continue
+    if [[ ! -d "${project}" ]]; then
+        bashio::log.warning "Project path '${project}' does not exist, skipping"
+        continue
+    fi
+    project="$(realpath "${project}")"
+    title="$(basename "${project}")"
+    [[ "${project}" == "/homeassistant" ]] && title="Home Assistant config"
+
+    if output="$(t3 project add "${project}" --title "${title}" 2>&1)"; then
+        bashio::log.info "Registered project '${title}' (${project})"
+    elif [[ "${output}" == *ProjectAlreadyExistsError* ]]; then
+        bashio::log.debug "Project '${project}' is already registered"
+    else
+        bashio::log.warning "Could not register project '${project}':"
+        printf '%s\n' "${output}" | head -n 5
+    fi
+done <<< "${projects}"
