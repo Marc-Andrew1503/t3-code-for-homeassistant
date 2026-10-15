@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: T3 Code app bug
+    url: https://github.com/pingdotgg/t3code/issues
+    about: Bugs in the T3 Code app or server itself (not specific to the Home Assistant add-on) belong upstream.
+  - name: Security vulnerability
+    url: https://github.com/Marc-Andrew1503/t3-code-for-homeassistant/security/advisories/new
+    about: Report security problems privately. Do not open a public issue.

@@ -144,6 +144,13 @@ actionlint
 | `.github/workflows/auto-update.yaml`| Scheduled upstream check and automatic release               |
 | `.github/workflows/release.yaml`    | Publishes the image, tag and GitHub release                  |
 
+## Contributing
+
+Bugs and ideas for the add-on are welcome as issues. Bugs in T3 Code itself belong in
+[pingdotgg/t3code](https://github.com/pingdotgg/t3code/issues). See [CONTRIBUTING.md](CONTRIBUTING.md)
+for how to propose a change and [AGENTS.md](AGENTS.md) for the guide used by contributors and coding
+agents (commands, verification, versioning and documentation rules).
+
 ## License
 
 [MIT](LICENSE). T3 Code is also MIT licensed; Claude Code is subject to Anthropic's terms.

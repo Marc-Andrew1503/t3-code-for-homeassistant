@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement or a new option for the add-on.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for ideas about the Home Assistant add-on (options, packaging, docs, update pipeline).
+        Ideas for the T3 Code app itself belong in
+        [upstream Discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+        Search existing issues first and keep the request focused on one problem.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the add-on does not support well today?
+      placeholder: I want to register /addon_configs as a project without editing options by hand.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What would you like the add-on to do? Describe behavior, not implementation.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and workarounds
+      description: Existing options or workflows you tried, and why they are not enough.
+    validations:
+      required: false

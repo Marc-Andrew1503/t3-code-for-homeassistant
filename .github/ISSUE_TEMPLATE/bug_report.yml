@@ -1,0 +1,116 @@
+name: Bug report
+description: Report broken behavior, regressions, crashes, or reliability issues in the add-on.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for broken behavior, regressions, crashes, or reliability problems of the
+        Home Assistant add-on. Bugs in the T3 Code app or server itself belong in
+        [pingdotgg/t3code](https://github.com/pingdotgg/t3code/issues).
+        Feature requests have their own form. Search existing issues first and keep the report
+        focused on one problem.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I included enough detail to reproduce or investigate the problem.
+          required: true
+        - label: I removed pairing codes, tokens and API keys from everything I pasted.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project is affected?
+      options:
+        - Add-on startup or runtime
+        - Pairing or connection
+        - Claude Code inside the add-on
+        - Auto-update, CI, or release
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, deterministic repro.
+      placeholder: |
+        1. Install the add-on and set the option ...
+        2. Start the add-on
+        3. Open the Log tab
+        4. Pair the T3 Code app with ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The log shows a pairing link with my Home Assistant address.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: The log shows <your-HA-IP> and the client cannot connect.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: How bad is this in practice?
+      options:
+        - Blocks work completely
+        - Major degradation or frequent failure
+        - Minor bug or occasional failure
+        - Cosmetic issue
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Add-on version
+      description: Shown on the add-on's Info tab (for example 0.0.45.1).
+      placeholder: 0.0.45.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Home Assistant OS, Supervisor and Core versions, hardware or VM type, and the T3 Code client (desktop, web, mobile) with its version.
+      placeholder: |
+        HA OS 15.2, Supervisor 2026.10.0, Core 2026.10.1, Raspberry Pi 5 ...
+        T3 Code desktop 0.0.45 on macOS 15
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Add-on log
+      description: Paste the most relevant part of the add-on's Log tab. You can drag screenshots into the issue afterwards. Redact pairing codes, pairing links, tokens and API keys.
+      render: shell
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: If you found a temporary workaround, include it.
