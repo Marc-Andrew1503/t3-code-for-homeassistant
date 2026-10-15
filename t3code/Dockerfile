@@ -73,6 +73,6 @@ LABEL \
 
 # Lets the Supervisor restart the add-on when the server stops responding.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:3773/.well-known/t3/environment >/dev/null || exit 1
+    CMD ["curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:3773/.well-known/t3/environment"]
 
 WORKDIR /homeassistant
