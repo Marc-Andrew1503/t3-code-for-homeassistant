@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.45.1
+
+- Replace the obsolete `watchdog` option with a Docker `HEALTHCHECK`.
+- Drop `startup`/`boot` keys that only repeated the defaults.
+
 ## 0.0.45
 
 - Initial release of the T3 Code add-on.

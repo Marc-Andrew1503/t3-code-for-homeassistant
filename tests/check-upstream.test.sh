@@ -30,8 +30,9 @@ YAML
 }
 
 # run <t3-latest> <claude-latest> [extra args] -> output in ${OUT}
+# GITHUB_OUTPUT is cleared so the script prints its outputs to stdout, also in CI.
 run() {
-  OUT="$(T3_LATEST="$1" CLAUDE_CODE_LATEST="$2" "${SCRIPT}" --dir "${ADDON}" "${@:3}" 2>/dev/null)"
+  OUT="$(GITHUB_OUTPUT='' T3_LATEST="$1" CLAUDE_CODE_LATEST="$2" "${SCRIPT}" --dir "${ADDON}" "${@:3}" 2>/dev/null)"
 }
 
 expect() { # expect <description> <actual> <expected>

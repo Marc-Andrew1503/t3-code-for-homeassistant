@@ -71,4 +71,8 @@ LABEL \
     org.opencontainers.image.title="T3 Code for Home Assistant" \
     org.opencontainers.image.licenses="MIT"
 
+# Lets the Supervisor restart the add-on when the server stops responding.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:3773/.well-known/t3/environment >/dev/null || exit 1
+
 WORKDIR /homeassistant
