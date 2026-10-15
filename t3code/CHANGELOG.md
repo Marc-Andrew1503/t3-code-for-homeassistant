@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.45.2
+
+- Grant Supervisor API access so the add-on log shows the real Home Assistant address and port instead of `<your-HA-IP>`.
+
 ## 0.0.45.1
 
 - Replace the obsolete `watchdog` option with a Docker `HEALTHCHECK`.
