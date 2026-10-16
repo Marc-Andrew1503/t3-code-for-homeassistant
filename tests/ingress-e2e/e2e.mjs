@@ -112,6 +112,23 @@ try {
     await check("no top-level request escaped the ingress prefix", async () => {
       assert(leaks.length === 0, `escaped requests: ${leaks.join(", ")}`);
     });
+
+    // nginx presents same-origin WebSockets to T3 as same-origin; a foreign
+    // Origin must still be rejected by T3 even with a valid session cookie.
+    await check("a cross-site WebSocket is still rejected", async () => {
+      const wsUrl = (await wsOpened).url();
+      const cookie = (await context.cookies(entry)).map((c) => `${c.name}=${c.value}`).join("; ");
+      const outcome = (wsOrigin) => new Promise((resolve) => {
+        const ws = new WebSocket(wsUrl, { headers: { cookie, origin: wsOrigin } });
+        const timer = setTimeout(() => { ws.close(); resolve("timeout"); }, 10_000);
+        ws.onopen = () => { clearTimeout(timer); ws.close(); resolve("open"); };
+        ws.onerror = () => { clearTimeout(timer); resolve("rejected"); };
+      });
+      const same = await outcome(origin);
+      const foreign = await outcome("https://evil.example");
+      assert(same === "open", `same-origin WebSocket was ${same}`);
+      assert(foreign === "rejected", `cross-site WebSocket was ${foreign}`);
+    });
     await context.close();
   }
 
