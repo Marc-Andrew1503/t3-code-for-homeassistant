@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0
+
+- Update T3 Code to 0.1.0 ([release notes](https://github.com/pingdotgg/t3code/releases))
+
 ## 0.0.45.2
 
 - Grant Supervisor API access so the add-on log shows the real Home Assistant address and port instead of `<your-HA-IP>`.
