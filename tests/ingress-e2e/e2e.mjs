@@ -57,6 +57,8 @@ async function newContext(browser) {
   const leaks = [];
   context.on("request", (request) => {
     const url = new URL(request.url());
+    // blob: URLs (workers built from object URLs) carry the page origin but never hit the network.
+    if (url.protocol === "blob:") return;
     if (url.origin === origin && !inPrefix(url.pathname) && url.pathname !== "/ha-panel") {
       leaks.push(`${request.method()} ${url.pathname}`);
     }

@@ -59,7 +59,8 @@ die() {
 
 mkdir -p "${WORKDIR}/data" "${WORKDIR}/homeassistant" "${WORKDIR}/share"
 chmod 777 "${WORKDIR}/data" "${WORKDIR}/homeassistant" "${WORKDIR}/share"
-echo '{"log_level":"info"}' >"${WORKDIR}/data/options.json"
+# The Supervisor always writes the option defaults; mirror the ones the test relies on.
+echo '{"log_level":"info","projects":["/homeassistant"]}' >"${WORKDIR}/data/options.json"
 
 log "starting add-on image ${IMAGE}"
 ${DOCKER} run -d --name "${ADDON}" \

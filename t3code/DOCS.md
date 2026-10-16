@@ -43,10 +43,10 @@ this:
 ==============================================================================
  T3 Code is ready. Pair your T3 Code desktop/web client with this server.
 
-   Server URL : http://192.168.1.50:3773
+   Server URL : http://<your-HA-IP>:3773
    (or        : http://homeassistant.local:3773)
-   Pairing code (valid 1 hour, single use): ABCD2345EFGH
-   Pairing link: http://192.168.1.50:3773/pair#token=ABCD2345EFGH
+   Pairing code (valid 1 hour, single use): <pairing-code>
+   Pairing link: http://<your-HA-IP>:3773/pair#token=<pairing-code>
 ...
 ```
 

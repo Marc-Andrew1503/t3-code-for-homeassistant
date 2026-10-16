@@ -9,14 +9,12 @@ init: false
 hassio_api: true
 image: "ghcr.io/marc-andrew1503/t3code-{arch}"
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:code-braces
 panel_title: T3 Code
 ports:
   3773/tcp: 3773
 ports_description:
   3773/tcp: "T3 Code server (web UI, pairing and client connections)"
-webui: "http://[HOST]:[PORT:3773]"
 map:
   - type: homeassistant_config
     read_only: false
