@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0.2
+
+- Update Claude Code to 2.1.302 ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))
+
 ## 0.1.0.1
 
 - New "T3 Code" panel in the Home Assistant sidebar (Ingress). It works through any way you reach Home Assistant, including remote HTTPS access such as Nabu Casa, is limited to administrators and signs you in automatically.
