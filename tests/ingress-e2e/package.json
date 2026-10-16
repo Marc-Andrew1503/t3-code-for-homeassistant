@@ -1,0 +1,9 @@
+{
+  "name": "t3code-ingress-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser test of the T3 Code add-on's Home Assistant Ingress panel",
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}

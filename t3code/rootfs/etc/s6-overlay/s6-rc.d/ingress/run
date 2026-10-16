@@ -1,0 +1,100 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# T3 Code add-on: Home Assistant Ingress front (nginx) for the sidebar panel.
+# ==============================================================================
+set -uo pipefail
+# shellcheck source=/dev/null
+source /usr/local/lib/t3code/lib.sh
+
+readonly T3_URL="http://127.0.0.1:3773"
+readonly RUN_DIR=/run/t3code
+readonly PAIR_CONF="${RUN_DIR}/ingress-pair.conf"
+readonly SESSION_FILE=/data/t3code-ingress-session.json
+readonly SESSION_LABEL="Home Assistant Ingress"
+
+export HOME=/data/home
+export T3CODE_HOME=/data/t3
+
+# revoke_stored_session: revoke the bearer issued by the previous start, if any.
+revoke_stored_session() {
+    local id
+    [[ -f "${SESSION_FILE}" ]] || return 0
+    id="$(jq -r '.sessionId // empty' "${SESSION_FILE}" 2> /dev/null)" || id=""
+    [[ -z "${id}" ]] || t3 auth session revoke "${id}" > /dev/null 2>&1 || true
+    rm -f "${SESSION_FILE}"
+}
+
+# issue_bearer: issue a fresh admin bearer for /_ingress/pair and remember its
+# session id (not the token) so the next start can revoke it. Prints the token.
+# 365d: the bearer is reissued on every start; it only has to outlive an
+# uninterrupted add-on run. If it ever expires the user pairs manually.
+issue_bearer() {
+    local out token id
+    out="$(t3 auth session issue --label "${SESSION_LABEL}" --ttl 365d --json 2> /dev/null)" || return 1
+    token="$(jq -r '.token // empty' <<< "${out}" 2> /dev/null)" || token=""
+    id="$(jq -r '.sessionId // empty' <<< "${out}" 2> /dev/null)" || id=""
+    [[ -n "${token}" && "${token}" =~ ^[A-Za-z0-9._~+/=-]+$ ]] || return 1
+    if [[ -n "${id}" ]]; then
+        (umask 077 && jq -n --arg id "${id}" '{sessionId: $id}' > "${SESSION_FILE}")
+    fi
+    printf '%s' "${token}"
+}
+
+# wait_for_t3: wait (bounded) until the T3 server answers.
+wait_for_t3() {
+    local i
+    for ((i = 0; i < 120; i++)); do
+        curl -fsS -o /dev/null --max-time 2 "${T3_URL}/.well-known/t3/environment" 2> /dev/null && return 0
+        sleep 1
+    done
+    return 1
+}
+
+# write_pair_conf: nginx location body for /_ingress/pair. With a bearer it
+# proxies to T3's pairing-token endpoint; without one it answers 404 and the
+# shim leaves sign-in to the user.
+write_pair_conf() {
+    local token="${1:-}"
+    (
+        umask 077
+        if [[ -n "${token}" ]]; then
+            cat > "${PAIR_CONF}" << CONF
+proxy_pass ${T3_URL}/api/auth/pairing-token;
+proxy_method POST;
+proxy_set_header Content-Type application/json;
+proxy_set_header Authorization "Bearer ${token}";
+CONF
+        else
+            echo "return 404;" > "${PAIR_CONF}"
+        fi
+    )
+}
+
+mkdir -p "${HOME}" "${T3CODE_HOME}"
+rm -rf "${RUN_DIR}"
+mkdir -p "${RUN_DIR}"
+chmod 700 "${RUN_DIR}"
+
+bearer=""
+if [[ "$(opt ingress_auto_login true)" == "true" ]]; then
+    if wait_for_t3; then
+        revoke_stored_session
+        if bearer="$(issue_bearer)"; then
+            bashio::log.info "Ingress auto sign-in is enabled"
+        else
+            bearer=""
+            bashio::log.warning "Could not issue an ingress session; the sidebar panel will ask you to pair"
+        fi
+    else
+        bashio::log.warning "T3 Code did not become ready; the sidebar panel will ask you to pair"
+    fi
+else
+    revoke_stored_session
+    bashio::log.info "Ingress auto sign-in is disabled"
+fi
+write_pair_conf "${bearer}"
+unset bearer
+
+bashio::log.info "Starting the Home Assistant ingress proxy on port 8099"
+exec nginx -g 'daemon off;'

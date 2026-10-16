@@ -29,5 +29,11 @@ configuration:
   telemetry:
     name: T3 Code telemetry
     description: Send T3 Code's anonymous usage analytics. Disabled by default.
+  ingress_auto_login:
+    name: Sign in automatically in the sidebar panel
+    description: >-
+      Home Assistant already authenticated you, so the "T3 Code" sidebar panel
+      signs in without a pairing code. Turn off to pair manually in the panel.
+      Enabled by default.
 network:
   3773/tcp: T3 Code server (web UI, pairing and client connections)

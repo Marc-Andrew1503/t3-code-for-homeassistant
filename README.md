@@ -36,6 +36,13 @@ The image is published to GitHub Container Registry
 (`ghcr.io/Marc-Andrew1503/t3code-amd64`), so the Supervisor pulls a ready-made image and no
 build happens on your Home Assistant host. Currently only `amd64` is supported.
 
+## Sidebar panel
+
+The add-on adds a **T3 Code** panel to the Home Assistant sidebar (Ingress). It shows the T3 Code
+web UI inside Home Assistant, also over remote HTTPS access such as Nabu Casa, for administrators
+only, and signs you in automatically (option `ingress_auto_login`). The T3 Code app pairs directly
+as described below.
+
 ## Pairing
 
 1. Start the add-on and open its **Log** tab. It prints a one-time pairing token.
@@ -54,7 +61,7 @@ See the add-on's own documentation tab for configuration options.
   read secrets stored in `secrets.yaml`. **Keep regular backups** (Settings -> System -> Backups)
   and consider a Git repository for your configuration.
 - Anyone who can reach port 3773 and holds a valid pairing token can run agents on your host.
-  Treat the token like a password.
+  Treat the token like a password. The sidebar panel is limited to Home Assistant administrators.
 - Agent credentials (for example your Claude login or API key) are stored in `/data` inside the
   add-on and are included in Home Assistant backups of the add-on.
 
@@ -78,7 +85,7 @@ any manual step:
               v
   +-----------------------------+      failure
   | test: lint + docker build + |----------------------> open/update issue
-  | tests/smoke.sh              |                        "auto-update-failed",
+  | smoke + ingress e2e tests   |                        "auto-update-failed",
   +-----------------------------+                        main stays untouched
               | green
               v
@@ -124,6 +131,10 @@ docker build \
 # Smoke test the image (starts it, checks the web UI, versions and a restart)
 tests/smoke.sh local/t3code-amd64:dev
 
+# Browser test of the sidebar panel through an emulated Supervisor ingress proxy
+# (Playwright, downloads Chromium; see tests/ingress-e2e.sh)
+tests/ingress-e2e.sh local/t3code-amd64:dev
+
 # Check for upstream updates without touching any file
 scripts/check-upstream.sh --dry-run
 
@@ -140,7 +151,8 @@ actionlint
 | `scripts/read-config.sh`            | Reads build settings for CI                                  |
 | `scripts/changelog-section.sh`      | Extracts release notes from `t3code/CHANGELOG.md`            |
 | `tests/smoke.sh`                    | Container smoke test                                         |
-| `.github/workflows/build-test.yaml` | Lint, build and smoke test (PRs, branches, reusable)         |
+| `tests/ingress-e2e.sh`              | Browser test of the Ingress sidebar panel                    |
+| `.github/workflows/build-test.yaml` | Lint, build, smoke and e2e test (PRs, branches, reusable)    |
 | `.github/workflows/auto-update.yaml`| Scheduled upstream check and automatic release               |
 | `.github/workflows/release.yaml`    | Publishes the image, tag and GitHub release                  |
 

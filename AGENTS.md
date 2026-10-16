@@ -4,7 +4,7 @@ This repo packages the [T3 Code](https://github.com/pingdotgg/t3code) server (np
 
 It is unofficial and only repackages published npm releases. Bugs in T3 Code itself belong upstream at `pingdotgg/t3code`.
 
-- One add-on, `t3code/`. `amd64` only, no ingress. Clients connect directly on port `3773/tcp` and pair with a one-time code printed in the add-on log.
+- One add-on, `t3code/`. `amd64` only. Clients connect directly on port `3773/tcp` and pair with a one-time code printed in the add-on log. Home Assistant also shows a "T3 Code" sidebar panel (Ingress, admins only, auto sign-in): an nginx on port 8099 re-roots the T3 web UI under the ingress prefix.
 - `/homeassistant` (the HA config folder) and `/share` are mapped read-write. All state lives in `/data` (`HOME=/data/home`, `T3CODE_HOME=/data/t3`) and survives updates.
 - The image is built by CI and published to GHCR (`ghcr.io/marc-andrew1503/t3code-amd64`). The Supervisor pulls it; nothing is built on the user's HA host.
 - Versions of T3 Code and Claude Code are bumped automatically by `auto-update.yaml` and released by `release.yaml`.
@@ -27,7 +27,7 @@ Pairing over the LAN or Tailscale must keep working. The server listens on `0.0.
 
 ### 4. Safety of the user's Home Assistant config
 
-Agents can break a running smart home. Never weaken the warnings in `README.md` and `DOCS.md`, never add a default that gives more access, never expose the port beyond what the user configured, and never log secrets. Telemetry stays off by default. Credentials (`anthropic_api_key`, `claude_code_oauth_token`) are `password` options and never appear in logs, docs examples or test fixtures.
+Agents can break a running smart home. Never weaken the warnings in `README.md` and `DOCS.md`, never add a default that gives more access, never expose the port beyond what the user configured, and never log secrets. The ingress port 8099 accepts only the Supervisor (`172.30.32.2`) and loopback, the panel stays admin-only (`panel_admin` default), and the auto sign-in bearer lives only in a mode 600 file under `/run`. Telemetry stays off by default. Credentials (`anthropic_api_key`, `claude_code_oauth_token`) are `password` options and never appear in logs, docs examples or test fixtures.
 
 ## A note on principles
 
@@ -72,6 +72,7 @@ The most common defect is a change that works on the path you tested and is miss
 - **Versions.** The add-on version in `config.yaml` follows `scripts/check-upstream.sh`: a new T3 Code release `V` becomes `V`; a change that does not move T3 Code (Claude Code bump, add-on fix, option change) becomes `<T3 version>.<n>`, counting up (`0.0.45` -> `0.0.45.1` -> `0.0.45.2`) and resetting on the next T3 bump. `release.yaml` skips silently when tag `v<version>` already exists, so a change under `t3code/` that should ship needs a new version. Add a matching `## <version>` section to `t3code/CHANGELOG.md`; `scripts/changelog-section.sh` turns it into the release notes.
 - **Pipeline.** `scripts/check-upstream.sh`, `scripts/read-config.sh`, `scripts/changelog-section.sh`, the three workflows, `tests/smoke.sh` and `tests/check-upstream.test.sh` agree on file names, keys and output formats. Change one, check the others. In particular the `image` field in `config.yaml` must match what `release.yaml` publishes, and `build.yaml` keys feed the Docker build args.
 - **Dockerfile and rootfs.** `build.yaml` args (`T3_VERSION`, `CLAUDE_CODE_VERSION`) and the Dockerfile `ARG`s must match. New files under `rootfs/` need the right mode (scripts executable) and s6 wiring (`type`, `dependencies.d`, `user-bundles.d`).
+- **Ingress panel.** `rootfs/etc/nginx/nginx.conf`, the `ingress` s6 service and `rootfs/usr/share/t3code/ingress/shim.js` make the T3 client work under `/api/hassio_ingress/<token>/`. The shim depends on T3 client internals (TanStack Router `basepath`, absolute URLs in HTML and CSS), so a T3 upgrade can break it silently. `tests/ingress-e2e.sh` is the guard: keep it green, and extend it when the panel gains behavior. Changes to the `ingress*` options, the port or the allow-list also touch `config.yaml`, translations, `DOCS.md`, the smoke test and the e2e supervisor emulation (`tests/ingress-e2e/supervisor.conf`).
 - **Pairing flow.** The log output (server URL, pairing code, pairing link), `DOCS.md` and `README.md` describe the same flow. If the text printed by the `t3` service `run` script changes, update the docs and check `tests/smoke.sh` still matches.
 - **Translations.** Every user-visible string in `translations/en.yaml` has a German twin in `de.yaml`, and the other way around.
 - **Reverse states.** If you added a way in, add the way out. An option that switches something on needs a documented way to switch it off and a sensible default when unset. State in `/data` must survive a restart and an add-on update.
@@ -96,6 +97,9 @@ docker build \
 # Smoke test a built image (random host port, temp dirs, restart check)
 tests/smoke.sh local/t3code-amd64:dev
 
+# Browser test of the Ingress sidebar panel (Playwright, emulated Supervisor). Heavy: see Verifying.
+tests/ingress-e2e.sh local/t3code-amd64:dev
+
 # Offline unit test of the upstream update script (needs yq only)
 tests/check-upstream.test.sh
 
@@ -118,7 +122,7 @@ CI also runs `frenck/action-app-linter` on `t3code/` (add-on config lint). There
 
 - Smallest proof that the change works. For a script, run the script or its test. For an option, run the changed `rootfs` script logic with a temp `OPTIONS_FILE`. For docs, read them again.
 - Pick the matching check: `tests/check-upstream.test.sh` for `check-upstream.sh`, `scripts/lint-shell.sh` for any shell file, `actionlint` for workflows, `hadolint` for the Dockerfile. Validate YAML you touched with `yq '.' <file>`.
-- **Docker image builds are heavy.** The image is about 1 GB and the dev box has 4 GB of RAM. Ask before building or running the image locally. CI owns the full build and smoke test.
+- **Docker image builds are heavy.** The image is about 1 GB and the dev box has 4 GB of RAM. Ask before building or running the image locally. CI owns the full build, smoke test and ingress e2e test. The e2e test needs Playwright's Chromium and runs a headless browser; ask before running it locally.
 - `tests/smoke.sh` publishes a random loopback port and uses temp dirs. Keep it that way; never make a test bind host port 3773.
 - Local runs cannot reproduce the CI environment (`GITHUB_OUTPUT`, `GITHUB_TOKEN` permissions, `workflow_call` inputs, GHCR login). A new or changed workflow should be run once on a throwaway branch before it lands on `main`. `build-test.yaml` runs on pushes to any branch except `main`; `release.yaml` and the promote step deliberately do nothing off `main`. Delete the branch afterwards.
 - Test meaningful behavior. Do not add tests that only mirror the implementation.
@@ -155,9 +159,9 @@ Most changes do not need a documentation change. Agents can read the code.
 ## Where things live
 
 - `t3code/` - the add-on: `config.yaml`, `build.yaml`, `Dockerfile`, `npm-fetch.sh`, `DOCS.md`, `CHANGELOG.md`, `translations/`, icons.
-- `t3code/rootfs/` - copied to `/` in the image. s6-overlay services `init-t3` (git defaults, project registration) and `t3` (credentials, log level, pairing announcement, `t3 serve`). `usr/local/lib/t3code/lib.sh` holds the option helpers.
+- `t3code/rootfs/` - copied to `/` in the image. s6-overlay services `init-t3` (git defaults, project registration), `t3` (credentials, log level, pairing announcement, `t3 serve`) and `ingress` (auto sign-in bearer, then nginx on 8099). `usr/local/lib/t3code/lib.sh` holds the option helpers.
 - `scripts/` - `check-upstream.sh` (npm version check and file update), `read-config.sh`, `changelog-section.sh`, `lint-shell.sh`.
-- `tests/` - `smoke.sh` (container smoke test), `check-upstream.test.sh` (offline test of the update script).
+- `tests/` - `smoke.sh` (container smoke test), `ingress-e2e.sh` with `ingress-e2e/` (Playwright test of the sidebar panel behind an emulated Supervisor), `check-upstream.test.sh` (offline test of the update script).
 - `.github/workflows/` - `build-test.yaml`, `auto-update.yaml`, `release.yaml`.
 - `repository.yaml`, `assets/` - repository metadata for the Home Assistant add-on store.
 

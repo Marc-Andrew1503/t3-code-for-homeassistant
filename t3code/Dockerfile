@@ -11,7 +11,9 @@ ARG BUILD_VERSION
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Tools that agents (and T3 itself) expect to find on PATH.
-# libatomic1 is required by the T3 executable.
+# libatomic1 is required by the T3 executable. nginx (Debian's build includes
+# ngx_http_sub_module) fronts T3 for Home Assistant Ingress; our own
+# /etc/nginx/nginx.conf comes with rootfs, so the packaged default site goes.
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
@@ -23,10 +25,11 @@ RUN set -eux; \
         less \
         libatomic1 \
         nano \
+        nginx \
         openssh-client \
         procps \
         ripgrep; \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /etc/nginx/sites-enabled/default /etc/nginx/conf.d/*
 
 # Download an npm registry tarball and verify it against the registry's sha512
 # integrity value. Usage: npm_fetch <package> <tarball-basename> <version> <dest>

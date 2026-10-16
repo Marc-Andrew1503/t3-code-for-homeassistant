@@ -1,6 +1,6 @@
 name: "T3 Code"
 slug: t3code
-version: "0.1.0"
+version: "0.1.0.1"
 description: "T3 Code server with Claude Code as a remote environment for working on your Home Assistant configuration"
 url: https://github.com/Marc-Andrew1503/t3-code-for-homeassistant
 arch:
@@ -8,6 +8,10 @@ arch:
 init: false
 hassio_api: true
 image: "ghcr.io/marc-andrew1503/t3code-{arch}"
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:code-braces
+panel_title: T3 Code
 ports:
   3773/tcp: 3773
 ports_description:
@@ -24,6 +28,7 @@ options:
   projects:
     - /homeassistant
   telemetry: false
+  ingress_auto_login: true
 schema:
   log_level: list(trace|debug|info|warn|error)?
   projects:
@@ -33,3 +38,4 @@ schema:
   anthropic_api_key: password?
   claude_code_oauth_token: password?
   telemetry: bool?
+  ingress_auto_login: bool?

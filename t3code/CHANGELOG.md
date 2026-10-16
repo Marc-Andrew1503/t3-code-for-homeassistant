@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0.1
+
+- New "T3 Code" panel in the Home Assistant sidebar (Ingress). It works through any way you reach Home Assistant, including remote HTTPS access such as Nabu Casa, is limited to administrators and signs you in automatically.
+- New option `ingress_auto_login` (default on). Turn it off to pair manually inside the panel.
+- Direct access on port 3773 and pairing with the T3 Code app work as before.
+
 ## 0.1.0
 
 - Update T3 Code to 0.1.0 ([release notes](https://github.com/pingdotgg/t3code/releases))

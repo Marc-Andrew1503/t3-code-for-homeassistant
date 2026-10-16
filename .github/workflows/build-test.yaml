@@ -1,7 +1,7 @@
 ---
 name: Build & Test
 
-# Lints the add-on, builds the image and runs the smoke test.
+# Lints the add-on, builds the image and runs the smoke test and the Ingress browser test.
 # Reusable (called by auto-update.yaml) and also triggered by PRs and pushes to
 # branches other than main.
 on:
@@ -69,7 +69,7 @@ jobs:
         run: tests/check-upstream.test.sh
 
   build-and-test:
-    name: Build image & smoke test
+    name: Build image, smoke & ingress e2e test
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -99,3 +99,30 @@ jobs:
 
       - name: Smoke test
         run: tests/smoke.sh local/t3code-amd64:ci "${{ steps.cfg.outputs.t3_version }}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install Playwright and Chromium
+        working-directory: tests/ingress-e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium-headless-shell
+
+      # Guards the sidebar panel against T3 Code upgrades (see tests/ingress-e2e.sh).
+      - name: Ingress e2e test
+        env:
+          E2E_SCREENSHOT_DIR: ${{ runner.temp }}/ingress-e2e-screenshots
+        run: |
+          mkdir -p "${E2E_SCREENSHOT_DIR}"
+          tests/ingress-e2e.sh local/t3code-amd64:ci
+
+      - name: Upload e2e screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingress-e2e-screenshots
+          path: ${{ runner.temp }}/ingress-e2e-screenshots
+          if-no-files-found: ignore

@@ -11,13 +11,28 @@ let Claude Code agents work on your Home Assistant configuration
 > agent can run arbitrary shell commands inside the add-on container (that is the
 > point). A bad edit can stop Home Assistant from starting. **Create a backup
 > before you start**, review what agents do (especially in T3's "Full access"
-> mode), and never expose port 3773 to the internet.
+> mode), and never expose port 3773 to the internet. Everyone who can open the
+> **T3 Code** sidebar panel (Home Assistant administrators) has the same power.
 
 ## Installation
 
 1. Add this repository to the Home Assistant app/add-on store and install **T3 Code**.
 2. (Optional) Review the options below, e.g. add your Claude credentials.
-3. Start the add-on and open its **Log** tab.
+3. Start the add-on. Open the **T3 Code** panel in the Home Assistant sidebar
+   (or **Open Web UI** on the add-on page), or pair the T3 Code app as described
+   below.
+
+## Sidebar panel
+
+The **T3 Code** entry in the Home Assistant sidebar shows the T3 Code web UI
+inside Home Assistant (Ingress). It works wherever you can reach Home Assistant,
+including remote HTTPS access such as Nabu Casa or Cloudflare, without opening
+port 3773. Only Home Assistant administrators see it, and it signs you in
+automatically, so no pairing code is needed. If you prefer to pair manually in
+the panel, turn off `ingress_auto_login`.
+
+To use the T3 Code desktop or mobile app instead, pair it directly (next
+section). Signing in with T3 Connect works only on t3.codes, not inside the panel.
 
 ## First start and pairing
 
@@ -113,6 +128,7 @@ a T3 terminal and add a `.gitignore` for `secrets.yaml`, `.storage/`, `*.db*` an
 | `anthropic_api_key` | _(empty)_ | Exported as `ANTHROPIC_API_KEY` for Claude Code. |
 | `claude_code_oauth_token` | _(empty)_ | Exported as `CLAUDE_CODE_OAUTH_TOKEN` for Claude Code. |
 | `telemetry` | `false` | Allow T3 Code's anonymous usage analytics. Off by default. |
+| `ingress_auto_login` | `true` | Sign in automatically in the sidebar panel. Turn off to pair manually there. |
 
 Example:
 
@@ -131,11 +147,17 @@ git_user_email: jane@example.com
 | --- | --- |
 | `3773/tcp` | T3 Code server (web UI, pairing and client connections) |
 
+The sidebar panel does not use this port; Home Assistant reaches the add-on on
+its internal network.
+
 You can change the host port in the add-on's **Network** section; the log then
 shows the mapped port.
 
 ## Troubleshooting
 
+- **The sidebar panel asks to pair or shows an error:** restart the add-on and
+  reload the page. If it still asks to pair, pair as described above or check
+  that `ingress_auto_login` is on. Only administrators see the panel.
 - **Add-on log shows no pairing code:** restart the add-on and check the log
   again; the box is printed after the server has started (a few seconds).
 - **"Pairing failed" in the client:** the code was already used or expired.

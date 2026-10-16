@@ -3,7 +3,7 @@ name: Auto-update
 
 # Checks npm for new stable T3 Code / Claude Code releases. If something changed:
 #   check   -> bump the add-on files on a temporary branch auto-update/<version>
-#   test    -> build-test.yaml (lint + build + smoke test) against that commit
+#   test    -> build-test.yaml (lint + build + smoke + ingress e2e test) against that commit
 #   promote -> fast-forward main to the tested commit
 #   release -> release.yaml publishes the image, tag and GitHub release
 # On any failure main stays untouched and an issue labelled "auto-update-failed"

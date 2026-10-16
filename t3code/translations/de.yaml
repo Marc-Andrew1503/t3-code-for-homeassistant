@@ -34,5 +34,11 @@ configuration:
     description: >-
       Anonyme Nutzungsstatistiken von T3 Code senden. Standardmäßig
       deaktiviert.
+  ingress_auto_login:
+    name: Im Seitenleisten-Panel automatisch anmelden
+    description: >-
+      Home Assistant hat dich bereits authentifiziert, daher meldet das
+      Seitenleisten-Panel "T3 Code" ohne Kopplungscode an. Ausschalten, um im
+      Panel manuell zu koppeln. Standardmäßig aktiviert.
 network:
   3773/tcp: T3-Code-Server (Web-Oberfläche, Kopplung und Client-Verbindungen)

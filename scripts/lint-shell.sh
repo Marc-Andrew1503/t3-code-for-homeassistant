@@ -22,7 +22,7 @@ while IFS= read -r -d '' f; do
   esac
 done < <(
   {
-    find scripts tests t3code/rootfs -type f -not -name '*.md' -not -name '*.json' -not -name '*.yaml' -not -name '*.yml' -print0 2>/dev/null
+    find scripts tests t3code/rootfs -type f -not -path '*/node_modules/*' -not -name '*.md' -not -name '*.json' -not -name '*.yaml' -not -name '*.yml' -print0 2>/dev/null
     find t3code -maxdepth 1 -type f -name '*.sh' -print0 2>/dev/null
   } | sort -z
 )
