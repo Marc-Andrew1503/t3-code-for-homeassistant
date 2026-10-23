@@ -15,7 +15,7 @@ This add-on is small on purpose. These are the things we protect.
 
 ### 1. Open at the core
 
-Everything is plain scripts, YAML and one Dockerfile. No hidden build steps, no vendored binaries. Packages are fetched from the npm registry and verified against their sha512 integrity (`t3code/npm-fetch.sh`). Keep it readable by someone who has never seen the repo.
+Everything is plain scripts, YAML and one Dockerfile. No hidden build steps, no vendored binaries. Packages are fetched from the npm registry and verified against their sha512 integrity (`t3code/npm-fetch.sh`). The T3 Code executable comes from its GitHub Release and is verified against the release's `SHA256SUMS`. Keep it readable by someone who has never seen the repo.
 
 ### 2. Performance without compromise
 

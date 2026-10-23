@@ -35,14 +35,20 @@ RUN set -eux; \
 # integrity value. Usage: npm_fetch <package> <tarball-basename> <version> <dest>
 COPY npm-fetch.sh /usr/local/lib/t3code/npm-fetch.sh
 
-# T3 Code: the platform package contains the self-contained executable plus
-# its client/ assets and native node_modules next to it. No Node.js required.
+# T3 Code: the GitHub Release archive contains the self-contained executable
+# plus its client/ assets and native node_modules next to it. No Node.js
+# required. Since 0.1.1 the npm package `t3` is only a launcher that downloads
+# this same archive and checks it against the release's SHA256SUMS, as we do.
 RUN set -eux; \
     test -n "${T3_VERSION}"; \
+    base="https://github.com/pingdotgg/t3code/releases/download/v${T3_VERSION}"; \
+    archive="t3-${T3_VERSION}-linux-x64.tar.gz"; \
+    curl -fsSL --retry 5 --retry-all-errors -o /tmp/SHA256SUMS "${base}/SHA256SUMS"; \
+    curl -fsSL --retry 5 --retry-all-errors -o "/tmp/${archive}" "${base}/${archive}"; \
+    awk -v f="${archive}" '$2 == f || $2 == "*" f { print $1 "  /tmp/" f }' /tmp/SHA256SUMS | sha256sum -c -; \
     mkdir -p /opt/t3; \
-    bash /usr/local/lib/t3code/npm-fetch.sh "@t3code/t3-linux-x64" "t3-linux-x64" "${T3_VERSION}" /tmp/t3.tgz; \
-    tar -xzf /tmp/t3.tgz -C /opt/t3 --strip-components=1; \
-    rm -f /tmp/t3.tgz; \
+    tar -xzf "/tmp/${archive}" -C /opt/t3 --strip-components=1; \
+    rm -f "/tmp/${archive}" /tmp/SHA256SUMS; \
     ln -s /opt/t3/t3 /usr/local/bin/t3; \
     t3 --version | grep -qF "${T3_VERSION}"
 
