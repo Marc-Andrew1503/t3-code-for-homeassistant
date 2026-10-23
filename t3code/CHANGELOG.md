@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Update T3 Code to 0.1.2 ([release notes](https://github.com/pingdotgg/t3code/releases))
+- Update Claude Code to 2.1.309 ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))
+
 ## 0.1.0.5
 
 - Update Claude Code to 2.1.305 ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))
