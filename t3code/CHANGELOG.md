@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Update T3 Code to 0.1.5 ([release notes](https://github.com/pingdotgg/t3code/releases))
+
 ## 0.1.4
 
 - Update T3 Code to 0.1.4 ([release notes](https://github.com/pingdotgg/t3code/releases))
