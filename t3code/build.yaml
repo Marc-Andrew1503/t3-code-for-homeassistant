@@ -1,5 +1,5 @@
 build_from:
   amd64: ghcr.io/home-assistant/amd64-base-debian:trixie-2026.10.0
 args:
-  T3_VERSION: "0.1.5"
+  T3_VERSION: "0.1.6"
   CLAUDE_CODE_VERSION: "2.1.316"

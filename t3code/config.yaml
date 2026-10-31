@@ -1,6 +1,6 @@
 name: "T3 Code"
 slug: t3code
-version: "0.1.5.2"
+version: "0.1.6"
 description: "T3 Code server with Claude Code as a remote environment for working on your Home Assistant configuration"
 url: https://github.com/Marc-Andrew1503/t3-code-for-homeassistant
 arch:
