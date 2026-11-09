@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7.2
+
+- Update Claude Code to 2.1.321 ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))
+
 ## 0.1.7.1
 
 - Update Claude Code to 2.1.319 ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))
