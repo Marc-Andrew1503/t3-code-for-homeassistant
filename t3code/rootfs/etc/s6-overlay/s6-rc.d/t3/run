@@ -102,11 +102,14 @@ announce() {
     echo
 }
 
-# t3 prints its startup pairing details with the container-internal address and
-# a QR code encoding it. Rewrite the address and drop the (then wrong) QR code.
+# t3 prints its startup pairing details with the container-internal address,
+# also URL-encoded inside the t3code:// app link, and a QR code encoding it.
+# Rewrite the address and drop the (then wrong) QR code.
+base_url_enc="$(jq -rn --arg u "${base_url}" '$u | @uri')"
 filter_output() {
     sed -u -E \
         -e "/^(Connection string|Pairing URL): /s#http://[^:/]+(:[0-9]+)#${base_url}#" \
+        -e "/^App link: /s#http%3A%2F%2F[^%]+%3A[0-9]+#${base_url_enc}#" \
         -e "s#^Token: #Pairing code (admin, valid 5 minutes): #" \
         -e "s#^Pairing URL: #Pairing URL (admin, valid 5 minutes): #" \
         -e '/^[[:space:]█▀▄]+$/d'

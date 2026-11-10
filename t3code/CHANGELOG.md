@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8.1
+
+- Fix the app link (`t3code://pair?...`) in the log pointing at the container-internal address instead of your Home Assistant host
+
 ## 0.1.8
 
 - Update T3 Code to 0.1.8 ([release notes](https://github.com/pingdotgg/t3code/releases))
