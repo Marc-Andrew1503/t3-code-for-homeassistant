@@ -220,6 +220,17 @@ check_ingress() {
 
 check_ingress
 
+# t3 advertises the container-internal address in its startup output, also
+# URL-encoded in the app link; the run script's filter must rewrite all of it.
+container_ip="$(${DOCKER} inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "${NAME}" | awk '{print $1}')"
+if [[ -z "${container_ip}" ]]; then
+  log "container has no IP address; skipping the internal address check"
+elif ${DOCKER} logs "${NAME}" 2>&1 | grep -F -- "${container_ip}"; then
+  fail "the container log shows the container-internal address ${container_ip}"
+else
+  pass "the container log does not show the container-internal address"
+fi
+
 # Restart / persistence: state in /data must survive a container restart and
 # the UI must come back up on its own.
 ${DOCKER} exec "${NAME}" sh -c 'echo persisted > /data/.smoke-marker' || fail "could not write marker to /data"
